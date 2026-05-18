@@ -1,10 +1,1 @@
-services:
-  - type: web
-    name: cyberhost-bot
-    runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python hosting.py
-    envVars:
-      - key: HOST_BOT_TOKEN
-        sync: false
-    plan: free
+2
