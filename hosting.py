@@ -30,21 +30,34 @@ from datetime import datetime, timedelta
 PYTHON_BIN = sys.executable or "python3"
 PIP_CMD    = [PYTHON_BIN, "-m", "pip"]
 
+import shutil as _shutil
+
+def _find_bin(*names):
+    """Find the first available binary from the list."""
+    for name in names:
+        path = _shutil.which(name)
+        if path:
+            return path
+    return names[0]  # fallback to first name even if not found
+
+NODE_BIN = _find_bin("node", "nodejs")
+NPX_BIN  = _find_bin("npx")
+
 # ── Multi-Language Runtime Map ──
 LANG_MAP = {
-    ".py":   {"cmd": [PYTHON_BIN, "-u"], "name": "Python",     "emoji": "🐍"},
-    ".js":   {"cmd": ["node"],           "name": "Node.js",    "emoji": "🟩"},
-    ".ts":   {"cmd": ["npx", "ts-node"],"name": "TypeScript",  "emoji": "🔷"},
-    ".mjs":  {"cmd": ["node"],           "name": "Node.js ESM","emoji": "🟩"},
-    ".cjs":  {"cmd": ["node"],           "name": "Node.js CJS","emoji": "🟩"},
-    ".go":   {"cmd": ["go", "run"],      "name": "Go",         "emoji": "🔵"},
-    ".rb":   {"cmd": ["ruby"],           "name": "Ruby",       "emoji": "💎"},
-    ".php":  {"cmd": ["php"],            "name": "PHP",        "emoji": "🐘"},
-    ".sh":   {"cmd": ["bash"],           "name": "Shell",      "emoji": "🐚"},
-    ".pl":   {"cmd": ["perl"],           "name": "Perl",       "emoji": "🔮"},
-    ".java": {"cmd": ["java"],           "name": "Java",       "emoji": "☕"},
-    ".lua":  {"cmd": ["lua"],            "name": "Lua",        "emoji": "🌙"},
-    ".r":    {"cmd": ["Rscript"],        "name": "R",          "emoji": "📊"},
+    ".py":   {"cmd": [PYTHON_BIN, "-u"],      "name": "Python",     "emoji": "🐍"},
+    ".js":   {"cmd": [NODE_BIN],              "name": "Node.js",    "emoji": "🟩"},
+    ".ts":   {"cmd": [NPX_BIN, "ts-node"],   "name": "TypeScript",  "emoji": "🔷"},
+    ".mjs":  {"cmd": [NODE_BIN],              "name": "Node.js ESM","emoji": "🟩"},
+    ".cjs":  {"cmd": [NODE_BIN],              "name": "Node.js CJS","emoji": "🟩"},
+    ".go":   {"cmd": [_find_bin("go"), "run"],"name": "Go",         "emoji": "🔵"},
+    ".rb":   {"cmd": [_find_bin("ruby")],     "name": "Ruby",       "emoji": "💎"},
+    ".php":  {"cmd": [_find_bin("php")],      "name": "PHP",        "emoji": "🐘"},
+    ".sh":   {"cmd": [_find_bin("bash","sh")],"name": "Shell",      "emoji": "🐚"},
+    ".pl":   {"cmd": [_find_bin("perl")],     "name": "Perl",       "emoji": "🔮"},
+    ".java": {"cmd": [_find_bin("java")],     "name": "Java",       "emoji": "☕"},
+    ".lua":  {"cmd": [_find_bin("lua","lua5.4","lua5.3")], "name": "Lua", "emoji": "🌙"},
+    ".r":    {"cmd": [_find_bin("Rscript")],  "name": "R",          "emoji": "📊"},
 }
 BOT_EXTS = set(LANG_MAP.keys())
 
@@ -60,7 +73,7 @@ def get_runner_cmd(fpath):
 # ╔══════════════════════════════════════════╗
 #   ★  CONFIG — Yahan apni info daalo  ★
 # ╚══════════════════════════════════════════╝
-HOST_TOKEN   = os.environ.get("HOST_BOT_TOKEN", "")    # ← Host bot token (set in secrets)
+HOST_TOKEN   = os.environ.get("HOST_BOT_TOKEN", "8252758434:AAGS_oYrq1l6GH0dWXCB29p8aMxstKLKhEs")    # ← Host bot token (set in secrets)
 SUPER_ADMIN  = 8701736436                # ← Aapka Telegram ID (integer)
 ADMIN_IDS    = {8701736436}              # Runtime mein add hote hain
 ALLOW_ALL    = True
@@ -95,11 +108,7 @@ CUSTOM_CMD_FILE  = "custom_cmds.json"
 FORCE_JOIN_FILE  = "force_join.json"
 
 # ── Default Force-Join Channels (admins can add/remove via /addfj) ──
-DEFAULT_FORCE_JOINS = [
-    {"id": -1003461219766, "link": "https://t.me/+2z-EBfs-FpUzMGQ9",      "name": "🔒 Group 1"},
-    {"id": -1003914709003, "link": "https://t.me/cybersameer_jarvis",       "name": "🤖 CyberSameer Jarvis"},
-    {"id": -1003817971024, "link": "https://t.me/CyberSameerAPIs",          "name": "📡 CyberSameer APIs"},
-]
+DEFAULT_FORCE_JOINS = []  # Empty by default — admin /addfj se apne channels add karo
 
 BASE_DIR       = os.path.join(os.path.dirname(os.path.abspath(__file__)), "botdata")
 BOTS_USERS_DIR = os.path.join(BASE_DIR, "bots_users")
@@ -108,10 +117,17 @@ DEPS_DIR       = os.path.join(BASE_DIR, "deps")
 LOGS_DIR       = os.path.join(BASE_DIR, "logs")
 BACKUP_DIR     = os.path.join(BASE_DIR, "backups")
 MEDIA_DIR      = os.path.join(BASE_DIR, "media")
+VARS_DIR       = os.path.join(BASE_DIR, "vars")
+
+# ── Webhook mode (auto-detect Replit) ──
+WEBHOOK_MODE   = bool(os.environ.get("REPLIT_DOMAINS"))
+_REPLIT_DOMAIN = (os.environ.get("REPLIT_DOMAINS") or "").split(",")[0].strip()
+WEBHOOK_PATH   = "/webhook"
+WEBHOOK_URL    = f"https://{_REPLIT_DOMAIN}{WEBHOOK_PATH}" if _REPLIT_DOMAIN else ""
 
 # ── Settings ──
-LONG_POLL_TIMEOUT       = 50
-SLEEP_ON_ERROR          = 0.3
+LONG_POLL_TIMEOUT       = 30
+SLEEP_ON_ERROR          = 0.1
 START_PROBE_SECONDS     = 2
 AUTO_INSTALL            = True
 AUTO_INSTALL_MAX_TRIES  = 5
@@ -212,7 +228,7 @@ def uptime_str(secs):
     except: return "N/A"
 
 def ensure_dirs():
-    for p in (BASE_DIR, BOTS_USERS_DIR, BOTS_ADMIN_DIR, DEPS_DIR, LOGS_DIR, BACKUP_DIR, MEDIA_DIR):
+    for p in (BASE_DIR, BOTS_USERS_DIR, BOTS_ADMIN_DIR, DEPS_DIR, LOGS_DIR, BACKUP_DIR, MEDIA_DIR, VARS_DIR):
         os.makedirs(p, exist_ok=True)
 
 def safe_name(s):
@@ -436,7 +452,8 @@ def check_force_join(uid):
     try:
         fj_data = load_json(FORCE_JOIN_FILE)
         channels = fj_data.get("channels", DEFAULT_FORCE_JOINS)
-    except: channels = DEFAULT_FORCE_JOINS
+    except: channels = list(DEFAULT_FORCE_JOINS)
+    if not channels: return []  # No force-join configured — allow all
     not_joined = []
     for ch in channels:
         try:
@@ -445,9 +462,16 @@ def check_force_join(uid):
                 status = r.get("result", {}).get("status", "left")
                 if status in ("member", "administrator", "creator", "restricted"):
                     continue
-            not_joined.append(ch)
+                not_joined.append(ch)
+            else:
+                # Bot is not admin of this channel or channel not found — SKIP it
+                err_code = r.get("error_code", 0)
+                desc = r.get("description", "")
+                if err_code in (400, 403) or "not enough rights" in desc.lower() or "chat not found" in desc.lower():
+                    continue  # Bot can't check — skip gracefully
+                not_joined.append(ch)
         except:
-            not_joined.append(ch)
+            pass  # Skip on any error — don't block users
     return not_joined
 
 def answer_callback(query_id, text="", alert=False):
@@ -636,6 +660,15 @@ class BotRunner(threading.Thread):
                     if os.path.isdir(node_modules):
                         env["PATH"] = node_modules + os.pathsep + env.get("PATH","")
                     env["NODE_PATH"] = self.deps + (os.pathsep + env.get("NODE_PATH","") if env.get("NODE_PATH") else "")
+                    # Per-bot custom environment variables
+                    vars_f = os.path.join(VARS_DIR, f"{self.oid}_{self.name}.json")
+                    if os.path.exists(vars_f):
+                        try:
+                            bvars = json.loads(open(vars_f, encoding="utf-8").read())
+                            env.update({str(k): str(v) for k, v in bvars.items()})
+                            logf.write(f"[ENV] Loaded {len(bvars)} custom var(s) from {vars_f}\n")
+                        except Exception as ve:
+                            logf.write(f"[ENV WARN] vars load failed: {ve}\n")
                     lang   = get_lang(self.bot_file)
                     cmd    = lang["cmd"] + [self.bot_file]
                     logf.write(f"[LANG] {lang['name']} {lang['emoji']} — cmd: {' '.join(cmd)}\n")
@@ -1806,8 +1839,9 @@ class HostBot:
 
     def backup_data(self, admin_id):
         ts          = datetime.now().strftime("%Y%m%d_%H%M%S")
+        os.makedirs(BACKUP_DIR, exist_ok=True)
         backup_path = os.path.join(BACKUP_DIR, f"backup_{ts}.zip")
-        files_to_backup = [
+        json_files  = [
             USERS_FILE, BOTS_USERS_FILE, BOTS_ADMIN_FILE, BANNED_FILE,
             NOTICES_FILE, QR_FILE, ADMINS_FILE, REFERRALS_FILE,
             WELCOME_FILE, AUTOREPLY_FILE, COUPON_FILE, CUSTOM_CMD_FILE,
@@ -1815,12 +1849,229 @@ class HostBot:
         ]
         try:
             with zipfile.ZipFile(backup_path, "w", zipfile.ZIP_DEFLATED) as z:
-                for f in files_to_backup:
-                    if os.path.exists(f): z.write(f)
+                # ── JSON databases ──
+                for f in json_files:
+                    if os.path.exists(f):
+                        z.write(f, os.path.join("databases", os.path.basename(f)))
+
+                # ── Each user's bot files in their own folder ──
+                for uid_str, udata in self.users_db.items():
+                    if not is_valid_uid(uid_str): continue
+                    uname = (udata.get("username") or udata.get("first_name") or uid_str)
+                    folder_label = f"users/user_{uid_str}_{uname}"
+                    user_dir = os.path.join(BOTS_USERS_DIR, uid_str)
+                    if os.path.isdir(user_dir):
+                        for root, dirs, files in os.walk(user_dir):
+                            for fname_b in files:
+                                fpath = os.path.join(root, fname_b)
+                                rel   = os.path.relpath(fpath, user_dir)
+                                z.write(fpath, os.path.join(folder_label, rel))
+
+                # ── Admin bot files ──
+                if os.path.isdir(BOTS_ADMIN_DIR):
+                    for root, dirs, files in os.walk(BOTS_ADMIN_DIR):
+                        for fname_b in files:
+                            fpath = os.path.join(root, fname_b)
+                            rel   = os.path.relpath(fpath, BOTS_ADMIN_DIR)
+                            z.write(fpath, os.path.join("admin_bots", rel))
+
             size = os.path.getsize(backup_path)
-            return backup_path, f"✅ Backup created!\n📦 Size: {fmt_size(size)}\n📁 {backup_path}"
+            return backup_path, (
+                f"╭━━━〔 ✅ BACKUP READY 〕━━━╮\n"
+                f"┃├ 📦 Size    : {fmt_size(size)}\n"
+                f"┃├ 🗂️ Users   : {len([x for x in self.users_db if is_valid_uid(x)])}\n"
+                f"┃├ 🤖 U-Bots  : {len(self.bots_users)}\n"
+                f"┃├ 👑 A-Bots  : {len(self.bots_admin)}\n"
+                f"┃├ 📁 Structure:\n"
+                f"┃├   databases/ — JSON DBs\n"
+                f"┃├   users/user_ID/ — each user's bots\n"
+                f"┃├   admin_bots/ — admin bots\n"
+                f"╰━━━━━━━━━━━━━━━━━━━━━━━╯"
+            )
         except Exception as e:
             return None, f"❌ Backup failed: {str(e)[:300]}"
+
+    # ════════════════════════════════════════
+    #   PER-BOT ENVIRONMENT VARIABLES
+    # ════════════════════════════════════════
+    def _vars_file(self, uid, name):
+        return os.path.join(VARS_DIR, f"{safe_int(uid)}_{safe_name(name)}.json")
+
+    def get_bot_vars(self, uid, name):
+        vf = self._vars_file(uid, name)
+        try:
+            if os.path.exists(vf): return load_json(vf)
+        except: pass
+        return {}
+
+    def set_bot_var(self, uid, name, key, val):
+        kk = bot_key(uid, name)
+        if not self._bots_db(uid).get(kk): return f"❌ Bot '{name}' nahi mila."
+        key = key.strip().upper()
+        if not key: return "❌ Key name empty nahi ho sakta."
+        vd = self.get_bot_vars(uid, name)
+        vd[key] = val
+        save_json(self._vars_file(uid, name), vd)
+        return (
+            f"╭━━━〔 ✅ VAR SET 〕━━━╮\n"
+            f"┃├ 🔑 Key   : <code>{key}</code>\n"
+            f"┃├ 💬 Value : <code>{val[:80]}</code>\n"
+            f"┃├ 🤖 Bot   : <b>{name}</b>\n"
+            f"╰{'━'*26}╯\n"
+            f"💡 /restart {name} se apply hoga."
+        )
+
+    def del_bot_var(self, uid, name, key):
+        kk = bot_key(uid, name)
+        if not self._bots_db(uid).get(kk): return f"❌ Bot '{name}' nahi mila."
+        key = key.strip().upper()
+        vd = self.get_bot_vars(uid, name)
+        if key not in vd: return f"❌ Var '<code>{key}</code>' nahi mila."
+        del vd[key]
+        save_json(self._vars_file(uid, name), vd)
+        return f"✅ Var '<code>{key}</code>' delete ho gaya!\n💡 /restart {name} se apply hoga."
+
+    def list_bot_vars_text(self, uid, name):
+        kk = bot_key(uid, name)
+        if not self._bots_db(uid).get(kk): return f"❌ Bot '{name}' nahi mila."
+        vd = self.get_bot_vars(uid, name)
+        if not vd:
+            return (
+                f"╭━━━〔 🔑 ENV VARS — {name} 〕━━━╮\n"
+                f"┃├ 📭 Koi var set nahi hai.\n"
+                f"╰{'━'*28}╯\n\n"
+                f"<b>Set karo:</b>\n"
+                f"<code>/setvar {name} DATABASE_URL mongodb://...</code>\n"
+                f"<code>/setvar {name} API_KEY your_api_key</code>"
+            )
+        rows = "\n".join(f"┃├ 🔑 <code>{k}</code> = <code>{str(v)[:60]}</code>" for k, v in vd.items())
+        return (
+            f"╭━━━〔 🔑 <b>ENV VARS — {name}</b> 〕━━━╮\n"
+            f"{rows}\n"
+            f"╰{'━'*30}╯\n\n"
+            f"💡 /setvar {name} KEY value — new var\n"
+            f"💡 /delvar {name} KEY — delete karo\n"
+            f"💡 /restart {name} — changes apply karo"
+        )
+
+    # ════════════════════════════════════════
+    #   BOT RENAME
+    # ════════════════════════════════════════
+    def rename_bot(self, uid, old_name, new_name):
+        uid      = safe_int(uid)
+        old_name = safe_name(old_name)
+        new_name = safe_name(new_name)
+        if not new_name: return "❌ New name invalid hai (alphanumeric/- only)."
+        db     = self._bots_db(uid)
+        old_kk = bot_key(uid, old_name)
+        new_kk = bot_key(uid, new_name)
+        if old_kk not in db: return f"❌ Bot '{old_name}' nahi mila."
+        if new_kk in db:     return f"❌ '{new_name}' naam ka bot pehle se hai."
+        # Stop if running
+        if old_kk in self.runners:
+            self.runners[old_kk].stop()
+            self.runners.pop(old_kk, None)
+        info = db.pop(old_kk)
+        info["name"] = new_name
+        db[new_kk] = info
+        save_json(self._bots_file(uid), db)
+        # Rename log file & vars file
+        for old_p, new_p in [
+            (log_path(uid, old_name), log_path(uid, new_name)),
+            (self._vars_file(uid, old_name), self._vars_file(uid, new_name)),
+        ]:
+            if os.path.exists(old_p):
+                try: os.rename(old_p, new_p)
+                except: pass
+        return (
+            f"╭━━━〔 ✏️ <b>BOT RENAMED</b> 〕━━━╮\n"
+            f"┃├ 📛 Old Name : <b>{old_name}</b>\n"
+            f"┃├ ✨ New Name : <b>{new_name}</b>\n"
+            f"╰{'━'*28}╯\n"
+            f"💡 /on {new_name} se start karo."
+        )
+
+    # ════════════════════════════════════════
+    #   BOT FILE SIZE
+    # ════════════════════════════════════════
+    def bot_filesize(self, uid, name):
+        uid  = safe_int(uid)
+        name = safe_name(name)
+        kk   = bot_key(uid, name)
+        info = self._bots_db(uid).get(kk)
+        if not info: return f"❌ Bot '{name}' nahi mila."
+        work_dir = info.get("work_dir", "")
+        total_b  = 0
+        file_cnt = 0
+        if work_dir and os.path.isdir(work_dir):
+            for dp, dn, fn in os.walk(work_dir):
+                for f in fn:
+                    try:
+                        total_b += os.path.getsize(os.path.join(dp, f))
+                        file_cnt += 1
+                    except: pass
+        lp    = log_path(uid, name)
+        log_b = 0
+        if os.path.exists(lp):
+            try: log_b = os.path.getsize(lp)
+            except: pass
+        return (
+            f"╭━━━〔 📊 <b>FILE SIZE — {name}</b> 〕━━━╮\n"
+            f"┃├ 📁 File Count : {file_cnt} file(s)\n"
+            f"┃├ 💾 Bot Size   : <b>{fmt_size(total_b)}</b>\n"
+            f"┃├ 📋 Log Size   : {fmt_size(log_b)}\n"
+            f"┃├ 🗂️ Work Dir   : <code>{os.path.basename(work_dir) or 'N/A'}</code>\n"
+            f"╰{'━'*30}╯"
+        )
+
+    # ════════════════════════════════════════
+    #   CLEANUP LOGS
+    # ════════════════════════════════════════
+    def cleanup_logs(self, uid):
+        uid = safe_int(uid)
+        ia  = self.is_admin(uid)
+        if ia:
+            all_bots = {**self.bots_users, **self.bots_admin}
+        else:
+            all_bots = {kk: v for kk, v in self._bots_db(uid).items()
+                        if safe_int(v.get("owner_id", 0)) == uid}
+        count = 0
+        freed = 0
+        for kk, info in all_bots.items():
+            owner = safe_int(info.get("owner_id", uid))
+            lp    = log_path(owner, info.get("name", ""))
+            if os.path.exists(lp):
+                try:
+                    freed += os.path.getsize(lp)
+                    open(lp, "w").close()
+                    count += 1
+                except: pass
+        return (
+            f"╭━━━〔 🧹 <b>LOGS CLEANUP</b> 〕━━━╮\n"
+            f"┃├ 📋 Logs cleared : <b>{count}</b>\n"
+            f"┃├ 💾 Space freed  : <b>{fmt_size(freed)}</b>\n"
+            f"╰{'━'*28}╯"
+        )
+
+    def _resolve_bot(self, uid, query):
+        """Resolve bot by name OR by bot_id (Telegram ID). Returns (owner_uid, name) or (None, None)."""
+        uid   = safe_int(uid)
+        query = str(query).strip()
+        db    = self._bots_db(uid)
+        # 1. Try exact name match
+        kk = bot_key(uid, safe_name(query))
+        if kk in db:
+            return uid, safe_name(query)
+        # 2. Try by numeric bot_id
+        for kk2, info in db.items():
+            if str(info.get("bot_id", "")) == query or str(info.get("bot_username", "")).lstrip("@").lower() == query.lstrip("@").lower():
+                return safe_int(info.get("owner_id", uid)), safe_name(info.get("name", ""))
+        # 3. Admin: scan all users' bots too
+        if self.is_admin(uid):
+            for kk2, info in {**self.bots_users, **self.bots_admin}.items():
+                if str(info.get("bot_id", "")) == query or str(info.get("bot_username", "")).lstrip("@").lower() == query.lstrip("@").lower():
+                    return safe_int(info.get("owner_id", uid)), safe_name(info.get("name", ""))
+        return None, None
 
     # ══════════════════════════════════════════
     #   TEXT BUILDERS — Beautiful formatting
@@ -1902,11 +2153,16 @@ class HostBot:
             f"┃├ ✅ Multi-language bot hosting\n"
             f"┃├ ✅ Auto dependency install\n"
             f"┃├ ✅ Live boot progress bar\n"
-            f"┃├ ✅ Error detection + code block\n"
+            f"┃├ ✅ Error in code blocks (readable)\n"
             f"┃├ ✅ Auto restart on crash\n"
+            f"┃├ ✅ Per-bot env vars (/setvar)\n"
+            f"┃├ ✅ Bot rename + filesize check\n"
+            f"┃├ ✅ Logs as file (auto if large)\n"
+            f"┃├ ✅ Webhook mode (Replit-ready)\n"
+            f"┃├ ✅ Speed test + uptime tracker\n"
+            f"┃├ ✅ Bulk stop/start/restart all\n"
             f"┃├ ✅ Premium Plans + Coupons\n"
             f"┃├ ✅ Referral system\n"
-            f"┃├ ✅ Inline keyboard buttons\n"
             f"┃├ ✅ Broadcast + Auto-reply\n"
             f"┃├ ✅ Full Admin panel\n"
             f"╰{'━'*34}╯\n\n"
@@ -1919,8 +2175,11 @@ class HostBot:
         return mk_reply_kb([
             ["🤖 My Bots",      "📊 My Status"],
             ["💳 My Plan",      "📋 Help"],
-            ["🔗 Referral",     "💰 Buy Plan"],
-            ["ℹ️ About",        "📢 Support"],
+            ["📦 Install Pkg",  "🔑 Bot Vars"],
+            ["⏱️ Uptime",       "⚡ Speed Test"],
+            ["🧹 Cleanup Logs", "🔗 Referral"],
+            ["💰 Buy Plan",     "📢 Support"],
+            ["ℹ️ About",        "🔗 Channel"],
         ])
 
     def admin_kb(self):
@@ -1931,6 +2190,8 @@ class HostBot:
             ["👥 All Users",    "👑 Premium Users"],
             ["📋 Admin Help",   "💰 Revenue"],
             ["⚙️ Maintenance",  "📢 Broadcast"],
+            ["⏱️ Uptime",       "⚡ Speed Test"],
+            ["🧹 Cleanup Logs", "💾 Backup"],
             ["ℹ️ About",        "🔗 Channel"],
         ])
 
@@ -1947,6 +2208,49 @@ class HostBot:
             "💰 Revenue":      lambda: sendh(cid, self.revenue_stats()),
             "ℹ️ About":        lambda: sendh(cid, self.about_text(), reply_markup=mk_url_kb([[("📢 Channel", CHANNEL_LINK),("💬 Support", SUPPORT_LINK)]])),
             "📢 Support":      lambda: send(cid, f"💬 Support: {SUPPORT_LINK}"),
+            "📢 Support Chat": lambda: send(cid, f"💬 Support: {SUPPORT_LINK}"),
+            "🔗 Channel":      lambda: send(cid, f"📢 Channel: {CHANNEL_LINK}"),
+            "📦 Install Pkg":  lambda: sendh(cid,
+                f"╭━━━〔 📦 <b>PACKAGE INSTALL</b> 〕━━━╮\n"
+                f"┃├ <b>Usage:</b> /install &lt;package&gt;\n"
+                f"┃├\n"
+                f"┃├ <b>Examples:</b>\n"
+                f"┃├  <code>/install requests</code>\n"
+                f"┃├  <code>/install aiogram pyrogram</code>\n"
+                f"┃├  <code>/install python-telegram-bot</code>\n"
+                f"┃├  <code>/install flask fastapi aiohttp</code>\n"
+                f"┃├\n"
+                f"┃├ 💡 Package sabhi bots ke liye install hoga\n"
+                f"┃├ 💡 Install ke baad /restart &lt;botname&gt;\n"
+                f"╰{'━'*28}╯"
+            ),
+            "🔑 Bot Vars":     lambda: sendh(cid,
+                f"╭━━━〔 🔑 <b>BOT ENV VARS</b> 〕━━━╮\n"
+                f"┃├ /vars &lt;name&gt;             — List\n"
+                f"┃├ /setvar &lt;name&gt; &lt;KEY&gt; &lt;val&gt;\n"
+                f"┃├ /delvar &lt;name&gt; &lt;KEY&gt;\n"
+                f"┃├\n"
+                f"┃├ 💡 Example:\n"
+                f"┃├  <code>/setvar mybot DB_URL mongo://...</code>\n"
+                f"┃├  <code>/setvar mybot API_KEY abc123</code>\n"
+                f"┃├\n"
+                f"┃├ 🔄 /restart ke baad apply hoga\n"
+                f"╰{'━'*28}╯"
+            ),
+            "⏱️ Uptime":       lambda: sendh(cid,
+                f"╭━━━〔 ⏱️ <b>PANEL UPTIME</b> 〕━━━╮\n"
+                f"┃├ ⏱️ Uptime   : <b>{uptime_str(now_ts() - self.start_time)}</b>\n"
+                f"┃├ 🚀 Since    : {fmt_time(self.start_time)}\n"
+                f"┃├ 💬 Messages : {self.msg_count}\n"
+                f"┃├ ⚡ Commands : {self.cmd_count}\n"
+                f"┃├ 📤 Uploads  : {self.upload_count}\n"
+                f"┃├ 📶 Mode     : {'🌐 Webhook' if WEBHOOK_MODE else '📡 Long Poll'}\n"
+                f"╰{'━'*26}╯"
+            ),
+            "⚡ Speed Test":   lambda: self._do_speed_test(cid),
+            "🧹 Cleanup Logs": lambda: sendh(cid, self.cleanup_logs(uid)),
+            "💾 Backup":       lambda: (send(cid, "⏳ Backup ban raha hai..."),
+                                       threading.Thread(target=lambda: self._do_backup_send(cid, uid), daemon=True).start()),
             "📊 Stats":        lambda: sendh(cid, self.stats()),
             "💻 System Info":  lambda: sendh(cid, self.system_info()),
             "🟢 Running Bots": lambda: sendh(cid, self.running_bots()),
@@ -1954,13 +2258,44 @@ class HostBot:
             "👑 Premium Users":lambda: send(cid, self.premium_users()),
             "⚙️ Maintenance":  lambda: sendh(cid, self.toggle_maintenance_quick(uid)),
             "📢 Broadcast":    lambda: send(cid, "Usage: /broadcast <message>"),
-            "🔗 Channel":      lambda: send(cid, f"📢 Channel: {CHANNEL_LINK}"),
         }
         fn = m.get(text)
         if fn:
             fn()
             return True
         return False
+
+    def _do_speed_test(self, cid):
+        """Run a Telegram API speed test and report result."""
+        t0 = time.time()
+        tg(HOST_TOKEN, "getMe")
+        ms = int((time.time() - t0) * 1000)
+        emoji = "🟢" if ms < 500 else ("🟡" if ms < 1500 else "🔴")
+        sendh(cid,
+            f"╭━━━〔 ⚡ <b>SPEED TEST</b> 〕━━━╮\n"
+            f"┃├ {emoji} Ping    : <b>{ms} ms</b>\n"
+            f"┃├ 🌐 API     : Telegram Bot API\n"
+            f"┃├ 📶 Mode    : {'🌐 Webhook' if WEBHOOK_MODE else '📡 Long Polling'}\n"
+            f"┃├ 🖥️ Server  : Replit\n"
+            f"╰{'━'*26}╯"
+        )
+
+    def _do_backup_send(self, cid, uid):
+        """Helper: create backup and send as file to cid."""
+        bpath, bmsg = self.backup_data(uid)
+        send(cid, bmsg)
+        if bpath and os.path.exists(bpath):
+            try:
+                import requests as _req
+                with open(bpath, "rb") as f:
+                    _req.post(
+                        f"https://api.telegram.org/bot{HOST_TOKEN}/sendDocument",
+                        data={"chat_id": cid, "caption": "📦 Full Backup ZIP", "parse_mode": "HTML"},
+                        files={"document": (os.path.basename(bpath), f, "application/zip")},
+                        timeout=120
+                    )
+            except Exception as e:
+                send(cid, f"📁 Backup: {bpath}\n⚠️ Upload failed: {str(e)[:80]}")
 
     def toggle_maintenance_quick(self, uid):
         curr = self.is_maintenance()
@@ -2080,14 +2415,34 @@ class HostBot:
 
             f"╭━━━〔 🎮 <b>BOT CONTROL</b> 〕━━━╮\n"
             f"┃├ /bots              — Apne bots dekho\n"
-            f"┃├ /botinfo &lt;name&gt;    — Bot ki details\n"
-            f"┃├ /on &lt;name&gt;         — Bot start karo\n"
-            f"┃├ /stop &lt;name&gt;       — Bot band karo\n"
-            f"┃├ /restart &lt;name&gt;    — Restart karo\n"
-            f"┃├ /delete &lt;name&gt;     — Bot delete karo\n"
-            f"┃├ /logs &lt;name&gt;       — Logs dekho\n"
-            f"┃├ /clearlogs &lt;name&gt;  — Logs clear karo\n"
+            f"┃├ /botinfo &lt;name/id&gt; — Bot ki details\n"
+            f"┃├ /ping &lt;name/id&gt;   — Bot alive check\n"
+            f"┃├ /on &lt;name/id&gt;     — Bot start karo\n"
+            f"┃├ /stop &lt;name/id&gt;   — Bot band karo\n"
+            f"┃├ /restart &lt;name/id&gt; — Restart karo\n"
+            f"┃├ /delete &lt;name/id&gt; — Bot delete karo\n"
+            f"┃├ /rename &lt;old&gt; &lt;new&gt; — Bot rename\n"
+            f"┃├ /logs &lt;name/id&gt;   — Logs (auto file)\n"
+            f"┃├ /clearlogs &lt;name/id&gt; — Logs clear\n"
+            f"┃├ /filesize &lt;name/id&gt; — Bot file size\n"
+            f"┃├ /cleanup          — Sab logs saaf\n"
+            f"┃├ /stopall          — Sab bots band\n"
+            f"┃├ /startall         — Sab bots start\n"
+            f"┃├ /restartall       — Sab bots restart\n"
+            f"╰{'━'*26}╯\n\n"
+
+            f"╭━━━〔 🔑 <b>ENV VARS (per bot)</b> 〕━━━╮\n"
+            f"┃├ /vars &lt;name&gt;             — Vars list\n"
+            f"┃├ /setvar &lt;name&gt; &lt;KEY&gt; &lt;val&gt; — Set var\n"
+            f"┃├ /delvar &lt;name&gt; &lt;KEY&gt;      — Delete var\n"
+            f"┃├ 💡 Restart ke baad apply hote hain\n"
+            f"╰{'━'*26}╯\n\n"
+
+            f"╭━━━〔 🛠️ <b>TOOLS</b> 〕━━━╮\n"
             f"┃├ /save &lt;token&gt;      — Token set karo\n"
+            f"┃├ /install &lt;pkg&gt;     — Package install\n"
+            f"┃├ /uptime           — Panel uptime\n"
+            f"┃├ /speed            — API speed test\n"
             f"┃├ /schedule &lt;n&gt; &lt;act&gt; &lt;min&gt; — Schedule\n"
             f"╰{'━'*26}╯\n\n"
 
@@ -2197,8 +2552,11 @@ class HostBot:
             f"╭━━━〔 ⚙️ <b>SYSTEM</b> 〕━━━╮\n"
             f"┃├ /stats                 — Full statistics\n"
             f"┃├ /systeminfo            — Server info\n"
-            f"┃├ /backup                — Data backup\n"
-            f"┃├ /maintenance on/off    — Maintenance mode\n"
+            f"┃├ /uptime               — Panel uptime\n"
+            f"┃├ /speed                — API speed test\n"
+            f"┃├ /backup               — Data backup (ZIP)\n"
+            f"┃├ /cleanup              — Sab logs saaf karo\n"
+            f"┃├ /maintenance on/off   — Maintenance mode\n"
             f"╰{'━'*30}╯\n\n"
 
             f"╭━━━〔 🔒 <b>FORCE-JOIN MANAGEMENT</b> 〕━━━╮\n"
@@ -2423,16 +2781,37 @@ class HostBot:
         if not os.path.exists(lp):
             send(cid, f"📭 '{name}' ke koi logs nahi hain.")
             return
-        txt = read_tail(lp, 150)
+        txt = read_tail(lp, 300)
         if not txt.strip():
             send(cid, f"📭 '{name}' ke logs empty hain.")
             return
-        send(cid,
-            f"📄 LOGS — {name}\n{DIV}\n"
-            f"👤 Owner: {oid}\n"
-            f"{DIV}\n"
-            f"{clip(txt, 3000)}"
+        header = (
+            f"╭━━━〔 📋 <b>LOGS — {name}</b> 〕━━━╮\n"
+            f"┃├ 👤 Owner : <code>{oid}</code>\n"
+            f"┃├ 📅 Time  : {fmt_time(now_ts())}\n"
+            f"╰{'━'*28}╯\n\n"
         )
+        if len(txt) > 3000:
+            # Send as .txt file — cleaner for large logs
+            try:
+                import requests as _req, io
+                with open(lp, "r", encoding="utf-8", errors="ignore") as f:
+                    full_txt = f.read()
+                bio = io.BytesIO(full_txt.encode("utf-8"))
+                _req.post(
+                    f"https://api.telegram.org/bot{HOST_TOKEN}/sendDocument",
+                    data={
+                        "chat_id": cid,
+                        "caption": f"📋 <b>{name}</b> — Full Logs\n👤 Owner: <code>{oid}</code>",
+                        "parse_mode": "HTML"
+                    },
+                    files={"document": (f"{name}_logs.txt", bio, "text/plain")},
+                    timeout=60
+                )
+                return
+            except Exception as e:
+                pass
+        sendh(cid, header + f"<code>{clip(txt, 3200)}</code>")
 
     def clear_logs(self, oid, name):
         lp = log_path(safe_int(oid), safe_name(name))
@@ -2791,6 +3170,9 @@ class HostBot:
     # ════════════════════════════════════════
     # ── Live boot progress bar helper (edit-in-place, no message flood) ──
     def _boot_progress(self, cid, step, total=6, label="", mid=None):
+        # Only update on first, middle and last step to reduce Telegram API calls
+        if mid and step not in (1, total // 2, total):
+            return mid
         filled = int((step / total) * 10)
         bar    = "█" * filled + "░" * (10 - filled)
         pct    = int(step / total * 100)
@@ -3403,45 +3785,259 @@ class HostBot:
                 if len(args) < 1: send(cid, "Usage: /save <bot_token>"); return
                 send(cid, self.save_token(uid, args[0])); return
 
+            if cmd == "/install":
+                if len(args) < 1:
+                    send(cid,
+                        f"╭━━━〔 📦 MANUAL INSTALL 〕━━━╮\n"
+                        f"┃├ Usage: /install <package> [pkg2] [pkg3]\n"
+                        f"┃├\n"
+                        f"┃├ Examples:\n"
+                        f"┃├  /install requests\n"
+                        f"┃├  /install python-telegram-bot\n"
+                        f"┃├  /install aiogram pyrogram\n"
+                        f"┃├  /install flask fastapi aiohttp\n"
+                        f"┃├\n"
+                        f"┃├ 💡 Package sabhi bots ke liye install hoga\n"
+                        f"┃├ 💡 Install ke baad /restart <botname>\n"
+                        f"╰━━━━━━━━━━━━━━━━━━━━━━━╯"
+                    ); return
+                pkgs = args
+                send(cid,
+                    f"╭━━━〔 ⏳ INSTALLING 〕━━━╮\n"
+                    f"┃├ 📦 Pkgs   : {', '.join(pkgs)}\n"
+                    f"┃├ 🔄 Status : Installing...\n"
+                    f"┃├ ⏱️ Thodi der lagegi...\n"
+                    f"╰━━━━━━━━━━━━━━━━━━━━━━━╯"
+                )
+                def do_install(cid=cid, uid=uid, pkgs=pkgs):
+                    results = []
+                    for pkg in pkgs:
+                        try:
+                            r = subprocess.run(
+                                [PYTHON_BIN, "-m", "pip", "install", "-q", "--user", pkg],
+                                capture_output=True, text=True, timeout=180
+                            )
+                            if r.returncode == 0:
+                                results.append(f"✅ {pkg}")
+                            else:
+                                err = (r.stderr or r.stdout or "")[:120].strip()
+                                results.append(f"❌ {pkg}: {err}")
+                        except Exception as e:
+                            results.append(f"❌ {pkg}: {str(e)[:80]}")
+                    res_txt = "\n┃├ ".join(results)
+                    send(cid,
+                        f"╭━━━〔 📦 INSTALL DONE 〕━━━╮\n"
+                        f"┃├ {res_txt}\n"
+                        f"┃├\n"
+                        f"┃├ 💡 /restart <botname> se reload karo\n"
+                        f"╰━━━━━━━━━━━━━━━━━━━━━━━╯"
+                    )
+                threading.Thread(target=do_install, daemon=True).start()
+                return
+
             if cmd in ("/bots", "/botlist"): sendh(cid, self.my_bots(uid)); return
 
             if cmd == "/botinfo":
-                if len(args) < 1: send(cid, "Usage: /botinfo <name>"); return
-                send(cid, self.botinfo(uid, args[0])); return
+                if len(args) < 1: send(cid, "Usage: /botinfo <name or bot_id>"); return
+                bq = args[0]; ruid, rname = self._resolve_bot(uid, bq)
+                if not rname: send(cid, f"❌ Bot '{bq}' nahi mila.\n/bots se list dekho."); return
+                send(cid, self.botinfo(ruid, rname)); return
+
+            if cmd == "/ping":
+                if len(args) < 1: send(cid, "Usage: /ping <name or bot_id>"); return
+                bq = args[0]; ruid, rname = self._resolve_bot(uid, bq)
+                if not rname: send(cid, f"❌ Bot '{bq}' nahi mila."); return
+                kk = bot_key(ruid, rname)
+                r  = self.runners.get(kk)
+                if r and r.proc and r.proc.poll() is None:
+                    send(cid, f"╭━━━〔 🏓 PING 〕━━━╮\n┃├ 🤖 {rname}\n┃├ ✅ ALIVE\n┃├ ⏱ Uptime: {uptime_str(now_ts()-r.started_at)}\n┃├ 🔁 Restarts: {r.restarts}\n╰━━━━━━━━━━━━━━━━━━━━━━━╯")
+                else:
+                    send(cid, f"╭━━━〔 🏓 PING 〕━━━╮\n┃├ 🤖 {rname}\n┃├ 🔴 NOT RUNNING\n╰━━━━━━━━━━━━━━━━━━━━━━━╯")
+                return
 
             if cmd == "/stop":
-                if len(args) < 1: send(cid, "Usage: /stop <name>"); return
-                send(cid, self.stop_bot(uid, args[0], delete=False)); return
+                if len(args) < 1: send(cid, "Usage: /stop <name or bot_id>"); return
+                bq = args[0]; ruid, rname = self._resolve_bot(uid, bq)
+                if not rname: send(cid, f"❌ Bot '{bq}' nahi mila.\n/bots se list dekho."); return
+                send(cid, self.stop_bot(ruid, rname, delete=False)); return
 
             if cmd == "/on":
-                if len(args) < 1: send(cid, "Usage: /on <name>"); return
-                res = self.on_bot(uid, cid, args[0])
+                if len(args) < 1: send(cid, "Usage: /on <name or bot_id>"); return
+                bq = args[0]; ruid, rname = self._resolve_bot(uid, bq)
+                if not rname: send(cid, f"❌ Bot '{bq}' nahi mila.\n/bots se list dekho."); return
+                res = self.on_bot(ruid, cid, rname)
                 if res: send(cid, res)
-                else:   send(cid, f"🚀 Bot starting: {args[0]}...")
+                else:   send(cid, f"🚀 Bot starting: {rname}...")
                 return
 
             if cmd == "/restart":
-                if len(args) < 1: send(cid, "Usage: /restart <name>"); return
-                res = self.restart_bot(uid, cid, args[0])
+                if len(args) < 1: send(cid, "Usage: /restart <name or bot_id>"); return
+                bq = args[0]; ruid, rname = self._resolve_bot(uid, bq)
+                if not rname: send(cid, f"❌ Bot '{bq}' nahi mila.\n/bots se list dekho."); return
+                res = self.restart_bot(ruid, cid, rname)
                 if res: send(cid, res)
                 return
 
             if cmd == "/delete":
-                if ia and len(args) >= 2:
-                    try:
-                        tuid = safe_int(args[0])
-                        send(cid, self.stop_bot(tuid, args[1], delete=True)); return
-                    except: send(cid, "Usage (admin): /delete <uid> <name>"); return
-                if len(args) < 1: send(cid, "Usage: /delete <name>"); return
-                send(cid, self.stop_bot(uid, args[0], delete=True)); return
+                if ia and len(args) >= 2 and args[0].isdigit():
+                    tuid = safe_int(args[0])
+                    ruid2, rname2 = self._resolve_bot(tuid, args[1])
+                    if rname2: send(cid, self.stop_bot(ruid2, rname2, delete=True))
+                    else: send(cid, f"❌ Bot '{args[1]}' nahi mila.")
+                    return
+                if len(args) < 1: send(cid, "Usage: /delete <name or bot_id>"); return
+                bq = args[0]; ruid, rname = self._resolve_bot(uid, bq)
+                if not rname: send(cid, f"❌ Bot '{bq}' nahi mila.\n/bots se list dekho."); return
+                send(cid, self.stop_bot(ruid, rname, delete=True)); return
 
             if cmd == "/logs":
-                if len(args) < 1: send(cid, "Usage: /logs <name>"); return
-                self.send_logs(cid, uid, args[0]); return
+                if len(args) < 1: send(cid, "Usage: /logs <name or bot_id>"); return
+                bq = args[0]; ruid, rname = self._resolve_bot(uid, bq)
+                if not rname: send(cid, f"❌ Bot '{bq}' nahi mila."); return
+                self.send_logs(cid, ruid, rname); return
 
             if cmd == "/clearlogs":
-                if len(args) < 1: send(cid, "Usage: /clearlogs <name>"); return
-                send(cid, self.clear_logs(uid, args[0])); return
+                if len(args) < 1: send(cid, "Usage: /clearlogs <name or bot_id>"); return
+                bq = args[0]; ruid, rname = self._resolve_bot(uid, bq)
+                if not rname: send(cid, f"❌ Bot '{bq}' nahi mila."); return
+                send(cid, self.clear_logs(ruid, rname)); return
+
+            if cmd == "/uptime":
+                ut = uptime_str(now_ts() - self.start_time)
+                sendh(cid,
+                    f"╭━━━〔 ⏱️ <b>PANEL UPTIME</b> 〕━━━╮\n"
+                    f"┃├ ⏱️ Uptime   : <b>{ut}</b>\n"
+                    f"┃├ 🚀 Since    : {fmt_time(self.start_time)}\n"
+                    f"┃├ 💬 Messages : {self.msg_count}\n"
+                    f"┃├ ⚡ Commands : {self.cmd_count}\n"
+                    f"┃├ 📤 Uploads  : {self.upload_count}\n"
+                    f"┃├ 📶 Mode     : {'🌐 Webhook' if WEBHOOK_MODE else '📡 Long Poll'}\n"
+                    f"╰{'━'*26}╯"
+                ); return
+
+            if cmd == "/speed":
+                t0 = time.time()
+                r_sp = tg(HOST_TOKEN, "getMe")
+                ms = int((time.time() - t0) * 1000)
+                emoji = "🟢" if ms < 500 else ("🟡" if ms < 1500 else "🔴")
+                sendh(cid,
+                    f"╭━━━〔 ⚡ <b>SPEED TEST</b> 〕━━━╮\n"
+                    f"┃├ {emoji} Ping    : <b>{ms} ms</b>\n"
+                    f"┃├ 🌐 API     : Telegram Bot API\n"
+                    f"┃├ 📶 Mode    : {'🌐 Webhook' if WEBHOOK_MODE else '📡 Long Polling'}\n"
+                    f"┃├ 🖥️ Server  : Replit\n"
+                    f"╰{'━'*26}╯"
+                ); return
+
+            if cmd == "/rename":
+                if len(args) < 2: send(cid, "Usage: /rename <old_name> <new_name>"); return
+                ruid2, rname2 = self._resolve_bot(uid, args[0])
+                if not rname2: send(cid, f"❌ Bot '{args[0]}' nahi mila.\n/bots se list dekho."); return
+                sendh(cid, self.rename_bot(uid, rname2, args[1])); return
+
+            if cmd == "/vars":
+                if len(args) < 1:
+                    send(cid,
+                        f"╭━━━〔 🔑 ENV VARS HELP 〕━━━╮\n"
+                        f"┃├ /vars &lt;name&gt;             — List all vars\n"
+                        f"┃├ /setvar &lt;name&gt; &lt;KEY&gt; &lt;val&gt; — Set var\n"
+                        f"┃├ /delvar &lt;name&gt; &lt;KEY&gt;      — Delete var\n"
+                        f"┃├\n"
+                        f"┃├ 💡 Ye vars bot ke process mein\n"
+                        f"┃├    environment variable ke roop mein\n"
+                        f"┃├    pass hote hain automatically\n"
+                        f"╰{'━'*28}╯"
+                    ); return
+                bq = args[0]; ruid, rname = self._resolve_bot(uid, bq)
+                if not rname: send(cid, f"❌ Bot '{bq}' nahi mila."); return
+                sendh(cid, self.list_bot_vars_text(ruid, rname)); return
+
+            if cmd == "/setvar":
+                if len(args) < 3: send(cid,
+                    "Usage: /setvar <name> <KEY> <value>\n"
+                    "Example: /setvar mybot DATABASE_URL mongodb://...\n"
+                    "Example: /setvar mybot API_KEY abc123"
+                ); return
+                bq = args[0]; ruid, rname = self._resolve_bot(uid, bq)
+                if not rname: send(cid, f"❌ Bot '{bq}' nahi mila."); return
+                sendh(cid, self.set_bot_var(ruid, rname, args[1], " ".join(args[2:]))); return
+
+            if cmd == "/delvar":
+                if len(args) < 2: send(cid, "Usage: /delvar <name> <KEY>"); return
+                bq = args[0]; ruid, rname = self._resolve_bot(uid, bq)
+                if not rname: send(cid, f"❌ Bot '{bq}' nahi mila."); return
+                sendh(cid, self.del_bot_var(ruid, rname, args[1])); return
+
+            if cmd == "/filesize":
+                if len(args) < 1: send(cid, "Usage: /filesize <name or bot_id>"); return
+                bq = args[0]; ruid, rname = self._resolve_bot(uid, bq)
+                if not rname: send(cid, f"❌ Bot '{bq}' nahi mila."); return
+                sendh(cid, self.bot_filesize(ruid, rname)); return
+
+            if cmd == "/cleanup":
+                sendh(cid, self.cleanup_logs(uid)); return
+
+            if cmd == "/stopall":
+                stopped = 0
+                db = self._bots_db(uid)
+                for kk, info in list(db.items()):
+                    if safe_int(info.get("owner_id",0)) == uid:
+                        self.stop_bot(uid, info.get("name",""), delete=False)
+                        stopped += 1
+                send(cid, f"🛑 {stopped} bot(s) stop kar diye."); return
+
+            if cmd == "/startall":
+                started = 0
+                db = self._bots_db(uid)
+                for kk, info in list(db.items()):
+                    if safe_int(info.get("owner_id",0)) == uid:
+                        self.on_bot(uid, cid, info.get("name",""))
+                        started += 1
+                send(cid, f"🚀 {started} bot(s) start ho rahe hain..."); return
+
+            if cmd == "/restartall":
+                count = 0
+                db = self._bots_db(uid)
+                for kk, info in list(db.items()):
+                    if safe_int(info.get("owner_id",0)) == uid:
+                        self.restart_bot(uid, cid, info.get("name",""))
+                        count += 1
+                send(cid, f"🔄 {count} bot(s) restart ho rahe hain..."); return
+
+            # ── File uploads (ALL users — must be before admin-only exit) ──
+            if doc:
+                fname_d = doc.get("file_name", "") or ""
+                fext_d  = os.path.splitext(fname_d)[1].lower()
+                # /payss caption case — forward screenshot, not a bot upload
+                if caption and caption.lower().startswith("/payss"):
+                    pass  # handled below in admin section
+                else:
+                    if fext_d not in BOT_EXTS and fext_d != ".zip":
+                        if not ia:
+                            fwd_file_admins(doc["file_id"],
+                                f"📎 {fname_d} from {uid} @{u.get('username','-')}")
+                        sendh(cid,
+                            f"╭━━━〔 ⚠️ <b>UNSUPPORTED FILE</b> 〕━━━╮\n"
+                            f"┃├ Extension '<b>{fext_d or 'unknown'}</b>' support nahi hai.\n"
+                            f"┃├\n"
+                            f"┃├ <b>Supported file types:</b>\n"
+                            f"┃├ 🐍 <code>.py</code>   — Python\n"
+                            f"┃├ 🟩 <code>.js .mjs .cjs</code> — Node.js\n"
+                            f"┃├ 🔷 <code>.ts</code>   — TypeScript\n"
+                            f"┃├ 🔵 <code>.go</code>   — Go (Golang)\n"
+                            f"┃├ 💎 <code>.rb</code>   — Ruby\n"
+                            f"┃├ 🐘 <code>.php</code>  — PHP\n"
+                            f"┃├ 🐚 <code>.sh</code>   — Shell/Bash\n"
+                            f"┃├ 📦 <code>.zip</code>  — Any language project\n"
+                            f"╰━━━━━━━━━━━━━━━━━━━━━━━╯"
+                        )
+                        return
+                    with self.lock:
+                        if uid in self.user_busy:
+                            sendh(cid, "⚠️ Ruko, pichla upload process ho raha hai."); return
+                        self.user_busy.add(uid)
+                    threading.Thread(target=self.process_upload, args=(cid, u, doc, caption), daemon=True).start()
+                    return
 
             # ══ ADMIN COMMANDS ══
             if not ia:
@@ -3665,11 +4261,23 @@ class HostBot:
             if cmd == "/adminbots":         send(cid, self.admin_bots());           return
 
             if cmd == "/backup":
-                send(cid, "⏳ Backup ban raha hai...")
-                bpath, bmsg = self.backup_data(uid)
-                send(cid, bmsg)
-                if bpath and os.path.exists(bpath):
-                    send(cid, f"📦 Backup location: {bpath}")
+                send(cid, "⏳ Backup ban raha hai... thodi der ruko")
+                def do_backup(cid=cid, uid=uid):
+                    bpath, bmsg = self.backup_data(uid)
+                    send(cid, bmsg)
+                    if bpath and os.path.exists(bpath):
+                        try:
+                            import requests as _req
+                            with open(bpath, "rb") as f:
+                                _req.post(
+                                    f"https://api.telegram.org/bot{HOST_TOKEN}/sendDocument",
+                                    data={"chat_id": cid, "caption": "📦 Full Backup — Sab users ke bots + databases"},
+                                    files={"document": (os.path.basename(bpath), f, "application/zip")},
+                                    timeout=120
+                                )
+                        except Exception as e:
+                            send(cid, f"📁 Backup saved: {bpath}\n⚠️ Upload failed: {str(e)[:100]}")
+                threading.Thread(target=do_backup, daemon=True).start()
                 return
 
             # ══ SUPER ADMIN COMMANDS ══
@@ -3702,43 +4310,10 @@ class HostBot:
                 if not isp: send(cid, "❌ Sirf Super Admin."); return
                 send(cid, self.del_all_bots(uid)); return
 
-            # Forward user photos to admins
+            # Forward user photos to admins (admin section only — regular user photos forwarded earlier)
             if photo and not ia:
                 fwd_photo_admins(photo[-1]["file_id"],
                     f"📷 Photo from {u.get('first_name','')} (@{u.get('username','-')}) | {uid}")
-
-            # File uploads — all supported languages + zip
-            if doc:
-                fname = doc.get("file_name", "") or ""
-                fext  = os.path.splitext(fname)[1].lower()
-                if fext not in BOT_EXTS and fext != ".zip":
-                    if not ia:
-                        fwd_file_admins(doc["file_id"],
-                            f"📎 {fname} from {uid} @{u.get('username','-')}")
-                    sendh(cid,
-                        f"╭━━━〔 ⚠️ <b>UNSUPPORTED FILE</b> 〕━━━╮\n"
-                        f"┃├ Extension '<b>{fext or 'unknown'}</b>' support nahi hai.\n"
-                        f"┃├\n"
-                        f"┃├ <b>Supported file types:</b>\n"
-                        f"┃├ 🐍 <code>.py</code>   — Python\n"
-                        f"┃├ 🟩 <code>.js .mjs .cjs</code> — Node.js\n"
-                        f"┃├ 🔷 <code>.ts</code>   — TypeScript\n"
-                        f"┃├ 🔵 <code>.go</code>   — Go (Golang)\n"
-                        f"┃├ 💎 <code>.rb</code>   — Ruby\n"
-                        f"┃├ 🐘 <code>.php</code>  — PHP\n"
-                        f"┃├ 🐚 <code>.sh</code>   — Shell/Bash\n"
-                        f"┃├ 🔮 <code>.pl</code>   — Perl\n"
-                        f"┃├ 🌙 <code>.lua</code>  — Lua\n"
-                        f"┃├ 📦 <code>.zip</code>  — Any language project\n"
-                        f"╰━━━━━━━━━━━━━━━━━━━━━━━╯"
-                    )
-                    return
-                with self.lock:
-                    if uid in self.user_busy:
-                        sendh(cid, "⚠️ Ruko, pichla upload process ho raha hai."); return
-                    self.user_busy.add(uid)
-                threading.Thread(target=self.process_upload, args=(cid, u, doc, caption), daemon=True).start()
-                return
 
             if cmd == "/about":
                 sendh(cid, self.about_text(), reply_markup=mk_url_kb([
@@ -3782,7 +4357,6 @@ class HostBot:
     #   MAIN LOOP
     # ════════════════════════════════════════
     def run(self):
-        del_webhook()
         ensure_dirs()
         self.start_saved()
         print(
@@ -3797,8 +4371,36 @@ class HostBot:
             f"[*] Started      : {fmt_time(now_ts())}\n"
             f"[*] Super Admin  : {SUPER_ADMIN}\n"
             f"[*] Auto-install : {AUTO_INSTALL}\n"
-            f"[*] Running...\n"
+            f"[*] Mode         : {'🌐 Webhook' if WEBHOOK_MODE else '📡 Long Polling'}\n"
         )
+
+        if WEBHOOK_MODE and WEBHOOK_URL:
+            # ── Webhook mode: Telegram pushes updates to our server ──
+            del_webhook()
+            time.sleep(0.5)
+            r = tg(HOST_TOKEN, "setWebhook", {
+                "url": WEBHOOK_URL,
+                "allowed_updates": json.dumps(["message", "callback_query"]),
+                "drop_pending_updates": "true",
+            })
+            if r.get("ok"):
+                print(f"[WEBHOOK] Set OK → {WEBHOOK_URL}")
+            else:
+                print(f"[WEBHOOK] Set FAILED: {r} — falling back to long poll")
+                self._long_poll_loop()
+                return
+            # Keep the main thread alive (web server handles updates)
+            print(f"[*] Running in Webhook mode...\n")
+            while True:
+                time.sleep(60)
+        else:
+            # ── Long-polling mode ──
+            del_webhook()
+            print(f"[*] Running in Long Poll mode...\n")
+            self._long_poll_loop()
+
+    def _long_poll_loop(self):
+        """Standard long-polling loop."""
         while True:
             try:
                 res = tg(HOST_TOKEN, "getUpdates", {
@@ -3831,20 +4433,71 @@ class HostBot:
                 time.sleep(SLEEP_ON_ERROR)
 
 # ════════════════════════════════════════
-#   KEEP-ALIVE SERVER (24/7 Free Hosting)
+#   WEB SERVER — Keep-alive + Webhook
+#   GET  /         → status page
+#   GET  /health   → health check
+#   POST /webhook  → Telegram webhook updates
 # ════════════════════════════════════════
-def start_keepalive():
+_hostbot_ref = None  # set after HostBot() is created
+
+def start_web_server(hostbot=None):
+    global _hostbot_ref
+    if hostbot: _hostbot_ref = hostbot
     from http.server import BaseHTTPRequestHandler, HTTPServer
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 6000))
+
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
+            path = self.path.split("?")[0]
+            if path in ("/health", "/ping"):
+                body = b"OK"
+            else:
+                running = sum(1 for r in (_hostbot_ref.runners if _hostbot_ref else {}).values()
+                              if r.proc and r.proc.poll() is None)
+                body = (
+                    f"CyberHost v5.0 — Bot Hosting Panel\n"
+                    f"Status  : Running\n"
+                    f"Mode    : {'Webhook' if WEBHOOK_MODE else 'Long Polling'}\n"
+                    f"Bots    : {running} running\n"
+                    f"Webhook : {WEBHOOK_URL or 'N/A'}\n"
+                ).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(b"CyberHost Bot is Running!")
+            self.wfile.write(body)
+
+        def do_POST(self):
+            path = self.path.split("?")[0]
+            if path == WEBHOOK_PATH and _hostbot_ref:
+                try:
+                    clen = int(self.headers.get("Content-Length", 0))
+                    raw  = self.rfile.read(clen)
+                    upd  = json.loads(raw.decode("utf-8", errors="replace"))
+                    msg = upd.get("message")
+                    cbq = upd.get("callback_query")
+                    if msg:
+                        threading.Thread(target=_hostbot_ref.handle, args=(msg,), daemon=True).start()
+                    if cbq:
+                        threading.Thread(target=_hostbot_ref.handle_callback, args=(cbq,), daemon=True).start()
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(b"OK")
+                except Exception as e:
+                    print(f"[WEBHOOK ERR] {e}")
+                    self.send_response(500)
+                    self.end_headers()
+            else:
+                self.send_response(404)
+                self.end_headers()
+
         def log_message(self, *args): pass
+
     server = HTTPServer(("0.0.0.0", port), Handler)
-    print(f"[KEEP-ALIVE] Web server started on port {port}")
+    mode = "Webhook+KeepAlive" if WEBHOOK_MODE else "KeepAlive"
+    print(f"[WEB] {mode} server started on port {port}")
+    if WEBHOOK_MODE:
+        print(f"[WEB] Webhook URL: {WEBHOOK_URL}")
     server.serve_forever()
 
 # ════════════════════════════════════════
@@ -3869,5 +4522,6 @@ if __name__ == "__main__":
         print("    3. Token copy karo aur yahan paste karo")
         print("═" * 55)
     else:
-        threading.Thread(target=start_keepalive, daemon=True).start()
-        HostBot().run()
+        bot = HostBot()
+        threading.Thread(target=start_web_server, args=(bot,), daemon=True).start()
+        bot.run()
